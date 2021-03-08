@@ -4,8 +4,11 @@ function(input, output, session){
     q_numb = 0,
     empty = FALSE,
     mistake = FALSE,
+    success = FALSE,
     timer = 20,
-    timeout = FALSE
+    timeout = FALSE,
+    correct = FALSE,
+    display_time = 20
   )
   
   #----------------------------------------------#
@@ -18,11 +21,25 @@ function(input, output, session){
   
   #Observe space bar to advance tasks
   observeEvent(input$keypress, {
-    if(rv$transition > 1) {
-      if(input$keypress == 32) {
-        rv$transition = rv$transition+1
-        rv$q_numb = rv$q_numb + 1
+    allow_trans = all(!rv$empty, !rv$mistake, !rv$success, rv$q_numb < length(qs), rv$transition > 2)
+    if(allow_trans) {
+      
+      if(qs[rv$q_numb] == 'Go') {
+        rv$success = TRUE
+        rv$timer = -rv$display_time
       }
+      
+      if(qs[rv$q_numb] == 'NoGo') {
+        rv$mistake = TRUE
+        rv$timer = -rv$display_time
+      }
+      rv$transition = rv$transition+1
+      rv$q_numb = rv$q_numb + 1
+    }
+    
+    if(input$keypress == 32 & rv$transition == 2) {
+      rv$transition = rv$transition+1
+      rv$q_numb = rv$q_numb + 1
     }
   })
   
@@ -31,10 +48,34 @@ function(input, output, session){
   observe({
     invalidateLater(100, session)
     isolate({
+      allow_trans = all(!rv$empty, !rv$mistake, rv$q_numb < length(qs))
+      
+      if(rv$mistake & rv$timer < 0) {
+        rv$timer = rv$timer + 1
+      } else {
+        rv$mistake = FALSE
+      }
+      
+      if(rv$success & rv$timer < 0) {
+        rv$timer = rv$timer + 1
+      } else {
+        rv$success = FALSE
+      }
+      
       if(rv$q_numb >= 1 & rv$timer > 0) {
         rv$timer = rv$timer - 1
       } else if(rv$q_numb >= 1 & rv$timer == 0) {
-        rv$timer = 20
+        rv$timer = rv$display_time
+        if(qs[rv$q_numb] == 'NoGo') {
+          rv$correct = TRUE
+        } else {
+          rv$correct = FALSE
+        }
+        
+        if(allow_trans) {
+          rv$transition = rv$transition+1
+          rv$q_numb = rv$q_numb + 1
+        }
       }
     })
   })
@@ -60,25 +101,50 @@ function(input, output, session){
     }else if(rv$transition > 2 & rv$transition < 2+num_qs){
       
       if(rv$empty) {
-        list()
+        fluidRow()
       }else if(rv$mistake) {
         list(
           fluidRow(style='height:250px'),
-          fluidRow(h2('Mistake'))
+          fluidRow(h2('Mistake'), 
+                   h2(list('Timer:', rv$timer)),
+                   h2(list('Transition:', rv$transition)),
+                   h2(list('Question Numb:', rv$q_numb)),
+                   h2(list('Condition:', qs[rv$q_numb]))
+                   )
+        )
+      }else if(rv$success) {
+        list(
+          fluidRow(style='height:250px'),
+          fluidRow(h2('success'), 
+                   h2(list('Timer:', rv$timer)),
+                   h2(list('Transition:', rv$transition)),
+                   h2(list('Question Numb:', rv$q_numb)),
+                   h2(list('Condition:', qs[rv$q_numb]))
+          )
         )
       }else if(qs[rv$q_numb] == "Go"){
         list(
           fluidRow(style='height:250px'),
-          fluidRow(img(src='green.png', alt='green', style="width:200x;height:100px;vertical-align:middle"))
+          fluidRow(img(src='green.png', alt='green', style="width:200x;height:100px;vertical-align:middle"),
+                   h2(list('Timer:', rv$timer)),
+                   h2(list('Transition:', rv$transition)),
+                   h2(list('Question Numb:', rv$q_numb)),
+                   h2(list('Condition:', qs[rv$q_numb]))
+                  )
         )
       }else if(qs[rv$q_numb] == "NoGo"){
         list(
           fluidRow(style='height:250px'),
-          fluidRow(img(src='red.png', alt='green', style="width:200x;height:100px;vertical-align:middle"))
+          fluidRow(img(src='red.png', alt='green', style="width:200x;height:100px;vertical-align:middle"),
+                   h2(list('Timer:', rv$timer)),
+                   h2(list('Transition:', rv$transition)),
+                   h2(list('Question Numb:', rv$q_numb)),
+                   h2(list('Condition:', qs[rv$q_numb]))
+                   )
         )
       }
-    }else if(rv$transition >= 2+num_qs) {
-      h2('Success')
+    }else {
+      h2('Done')
     }
   )
   
